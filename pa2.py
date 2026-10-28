@@ -5,6 +5,32 @@ import pathlib
 import xml.etree.ElementTree as ET # xml parsing
 
 
+
+class Device:
+    """A single device from the network"""
+    def __init__(self, data):
+        self.id = data.get("id")
+        self.role = data.get("role") #get gets the data of that element
+        self.os = data.get("os")
+        findowner = data.find("owner") # find basically gets the child elements of xml
+        self.owner = ""
+        if findowner is not None and findowner.text: # .text helps get the text inbetween the tag
+            self.owner = findowner.text.strip()
+        self.interfaces = [(i.get("name"), i.get("status")) for i in data.findall("interface")]
+
+    def has_owner(self):
+        """Will return true if the device has an owner"""
+        return self.owner != ""
+    def count_down(self):
+        """Return the amount of interfaces down """
+        count = 0
+        for name, status in self.interfaces:
+            if status == "down":
+                count += 1
+        return count
+
+
+
 def main():
     device_xml, policy_yaml = cmd_args()
     print("The device file", device_xml, "The policy file:", policy_yaml)
@@ -12,15 +38,31 @@ def main():
     file_exists(device_xml)
     file_exists(policy_yaml)
     root = get_inventory("devices.xml")
+    # debug stuff to be removed later
     print(root.tag)                      # inventory
     print(root.get("site"))              # ott-dc1
     print(len(root.findall("device")))   # 6
+    devices = parse_inventory(root)
+    for d in devices:
+        print(d.id, d.role, d.os, d.owner)
 
 
 def get_inventory(filename):
     with open(filename) as f:
         root = ET.parse(f).getroot() # parse the xml file
         return root
+
+
+def parse_inventory(root):
+    site = root.get("site")
+    devices = []
+    skipped = 0
+    for dev in root.findall("device"):
+        if dev.get("id") is None:
+            skipped += 1
+            continue
+        devices.append(Device(dev))
+    return devices
 
 
 def cmd_args(): # used to grab the commandline arguments
