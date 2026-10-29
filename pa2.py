@@ -40,9 +40,9 @@ def main():
     root = get_inventory("devices.xml")
     # debug stuff to be removed later
     print(root.tag)                      # inventory
-    print(root.get("site"))              # ott-dc1
     print(len(root.findall("device")))   # 6
-    devices = parse_inventory(root)
+    site, devices = parse_inventory(root)
+    print(site)
     for d in devices:
         print(d.id, d.role, d.os, d.owner)
 
@@ -62,7 +62,7 @@ def parse_inventory(root):
             skipped += 1
             continue
         devices.append(Device(dev))
-    return devices
+    return site,devices
 
 
 def cmd_args(): # used to grab the commandline arguments
