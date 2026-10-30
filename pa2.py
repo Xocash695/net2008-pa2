@@ -32,7 +32,12 @@ class Device:
                 totals["other"] += 1
         return totals
 
-
+def count_interfaces(devices): # basically add up every device's interface_count
+    total = {"up": 0, "down": 0, "other": 0}
+    for device in devices:
+       for key, value in device.interface_counts().items():
+           total[key] += value
+    return total
 
 def main():
     device_xml, policy_yaml = cmd_args()
@@ -45,9 +50,10 @@ def main():
     print(root.tag)                      # inventory
     print(len(root.findall("device")))   # 6
     site, devices = parse_inventory(root)
+    print (count_interfaces(devices))
     print(site)
-    for d in devices:
-        print(d.id, d.interface_counts())
+    # for d in devices:
+    #     print(d.id, d.interface_counts())
 
 
 def get_inventory(filename):
