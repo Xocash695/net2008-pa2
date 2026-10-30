@@ -21,13 +21,16 @@ class Device:
     def has_owner(self):
         """Will return true if the device has an owner"""
         return self.owner != ""
-    def count_down(self):
-        """Return the amount of interfaces down """
-        count = 0
-        for name, status in self.interfaces:
-            if status == "down":
-                count += 1
-        return count
+    def interface_counts(self):
+        """Return the number interfaces with each state """
+        totals = {"up": 0, "down": 0, "other": 0}
+
+        for interface, status in self.interfaces:
+            if status == "down" or status == "up":
+                totals[status] += 1
+            else:
+                totals["other"] += 1
+        return totals
 
 
 
@@ -44,7 +47,7 @@ def main():
     site, devices = parse_inventory(root)
     print(site)
     for d in devices:
-        print(d.id, d.role, d.os, d.owner)
+        print(d.id, d.interface_counts())
 
 
 def get_inventory(filename):
