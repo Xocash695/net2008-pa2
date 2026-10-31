@@ -77,7 +77,7 @@ def main():
         "skipped_devices": skipped,
         "roles": count_roles(devices),
         "interfaces": count_interfaces(devices),
-        "violations": violations,
+        "violations": violations + missing,
         "compliant": sorted(device.id for device in devices)
     }
     create_report(report)
