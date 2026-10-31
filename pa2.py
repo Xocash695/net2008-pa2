@@ -71,6 +71,7 @@ def main():
     print(violations)
     missing = check_missing_owner(devices, policy)
     print(missing)
+    print(too_many_down(devices, policy))
     report = {
         "site": site,
         "total_devices": len(devices),
@@ -142,7 +143,20 @@ def check_missing_owner(devices, policy):
     return missing
 
 
-
+def too_many_down(devices, policy):
+    total_down = []
+    max_down_interfaces = policy.get("max_down_interfaces")
+    if max_down_interfaces is None:
+        return total_down
+    for device in devices:
+        down = device.interface_counts()["down"]
+        if down > max_down_interfaces:
+            total_down.append({
+                "device": device.id,
+                "type": "too_many_down",
+                "down": down
+            })
+    return total_down
 def cmd_args(): # used to grab the commandline arguments
     """Get the names of the files passed in """
     numArg = len(sys.argv) # get the number of arguments
