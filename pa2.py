@@ -69,6 +69,8 @@ def main():
     print(policy)
     violations = check_unknown_role(devices, policy)
     print(violations)
+    missing = check_missing_owner(devices, policy)
+    print(missing)
     report = {
         "site": site,
         "total_devices": len(devices),
@@ -109,6 +111,7 @@ def get_policy(policy_yaml):
 
 
 def check_unknown_role(devices, policy):
+    "Checking for unknown roles"
     violations = []
     min_os = policy.get("min_os")
     if min_os is None:
@@ -123,6 +126,21 @@ def check_unknown_role(devices, policy):
             })
 
     return violations
+
+def check_missing_owner(devices, policy):
+    "checking for a missing owner"
+    missing = []
+    require_owner = policy.get("require_owner")
+    if not require_owner:
+        return missing
+    for device in devices:
+        if not device.has_owner():
+            missing.append({
+                "device": device.id,
+                "type": "missing_owner",
+            })
+    return missing
+
 
 
 def cmd_args(): # used to grab the commandline arguments
