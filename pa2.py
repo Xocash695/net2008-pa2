@@ -5,6 +5,8 @@ import pathlib
 import xml.etree.ElementTree as ET # xml parsing
 import json
 
+import yaml
+
 
 class Device:
     """A single device from the network"""
@@ -54,6 +56,7 @@ def main():
     file_exists(device_xml)
     file_exists(policy_yaml)
     root = get_inventory(device_xml)
+
     # debug stuff to be removed later
     print(root.tag)                      # inventory
     print(len(root.findall("device")))   # 6
@@ -62,13 +65,17 @@ def main():
     print(site)
     print(skipped)
     print(count_roles(devices))
+    policy = get_policy(policy_yaml)
+    print(policy)
+    violations = check_unknown_role(devices, policy)
+    print(violations)
     report = {
         "site": site,
         "total_devices": len(devices),
         "skipped_devices": skipped,
         "roles": count_roles(devices),
         "interfaces": count_interfaces(devices),
-        "violations": [],
+        "violations": violations,
         "compliant": sorted(device.id for device in devices)
     }
     create_report(report)
@@ -76,8 +83,8 @@ def main():
     #     print(d.id, d.interface_counts())
 
 
-def get_inventory(filename):
-    with open(filename) as f:
+def get_inventory(devices_xml):
+    with open(devices_xml) as f:
         root = ET.parse(f).getroot() # parse the xml file
         return root
 
@@ -92,6 +99,30 @@ def parse_inventory(root):
             continue
         devices.append(Device(dev))
     return site,skipped,devices
+
+def get_policy(policy_yaml):
+    with open(policy_yaml) as f:
+        loaded = yaml.safe_load(f)
+        if loaded is None:
+            loaded = {}
+        return loaded
+
+
+def check_unknown_role(devices, policy):
+    violations = []
+    min_os = policy.get("min_os")
+    if min_os is None:
+        return violations
+    for device in devices:
+        role = device.role
+        if role not in min_os:
+            violations.append({
+                "device": device.id,
+                "type": "unknown_role",
+                "role": role
+            })
+
+    return violations
 
 
 def cmd_args(): # used to grab the commandline arguments
