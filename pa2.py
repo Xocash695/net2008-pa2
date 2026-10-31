@@ -39,6 +39,14 @@ def count_interfaces(devices): # basically add up every device's interface_count
            total[key] += value
     return total
 
+def count_roles(devices):
+    roles = {}
+    for d in devices:
+        current = roles.get(d.role, 0)
+        roles[d.role] = current + 1
+    return roles
+
+
 def main():
     device_xml, policy_yaml = cmd_args()
     print("The device file", device_xml, "The policy file:", policy_yaml)
@@ -52,6 +60,7 @@ def main():
     site, devices = parse_inventory(root)
     print (count_interfaces(devices))
     print(site)
+    print(count_roles(devices))
     # for d in devices:
     #     print(d.id, d.interface_counts())
 
