@@ -3,7 +3,7 @@
 import sys
 import pathlib
 import xml.etree.ElementTree as ET # xml parsing
-
+import json
 
 
 class Device:
@@ -53,14 +53,25 @@ def main():
     # check that the files exist
     file_exists(device_xml)
     file_exists(policy_yaml)
-    root = get_inventory("devices.xml")
+    root = get_inventory(device_xml)
     # debug stuff to be removed later
     print(root.tag)                      # inventory
     print(len(root.findall("device")))   # 6
-    site, devices = parse_inventory(root)
+    site,skipped, devices = parse_inventory(root)
     print (count_interfaces(devices))
     print(site)
+    print(skipped)
     print(count_roles(devices))
+    report = {
+        "site": site,
+        "total_devices": len(devices),
+        "skipped_devices": skipped,
+        "roles": count_roles(devices),
+        "interfaces": count_interfaces(devices),
+        "violations": [],
+        "compliant": sorted(device.id for device in devices)
+    }
+    create_report(report)
     # for d in devices:
     #     print(d.id, d.interface_counts())
 
@@ -80,7 +91,7 @@ def parse_inventory(root):
             skipped += 1
             continue
         devices.append(Device(dev))
-    return site,devices
+    return site,skipped,devices
 
 
 def cmd_args(): # used to grab the commandline arguments
@@ -98,6 +109,10 @@ def file_exists(filename):
         sys.exit(1)
 
 
+
+def create_report(report):
+    with open("audit.json", "w") as f:
+        json.dump(report, f, indent=2)
 
 if __name__ == "__main__":
     main()
