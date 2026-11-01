@@ -88,11 +88,12 @@ def main():
 
 def get_inventory(devices_xml):
     "open the inventory file and pass it"
-    with open(devices_xml) as f:
-        root = ET.parse(f).getroot() # parse the xml file
-        return root
-
-
+    try:
+        with open(devices_xml) as f:
+            root = ET.parse(f).getroot() # parse the xml file
+            return root
+    except ET.ParseError:
+            raise AuditError(f"Invalid XML file: {devices_xml}")
 
 
 
@@ -110,11 +111,16 @@ def parse_inventory(root):
 
 def get_policy(policy_yaml):
     "Opens the the policy file and checks if there is something if there is nothing then an empty dict is given"
-    with open(policy_yaml) as f:
-        loaded = yaml.safe_load(f)
-        if loaded is None:
-            loaded = {}
-        return loaded
+    try:
+        with open(policy_yaml) as f:
+            loaded = yaml.safe_load(f)
+    except yaml.YAMLError:
+            raise AuditError(f"Invalid YAML file: {policy_yaml}")
+    if loaded is None:
+        loaded = {}
+    if not isinstance(loaded, dict):
+        raise AuditError(f"Policy must be a mapping: {policy_yaml}")
+    return loaded
 
 
 def check_unknown_role(devices, policy):
@@ -208,14 +214,16 @@ def cmd_args(): # used to grab the commandline arguments
 def file_exists(filename):
     """Checks if the file actually exists"""
     if not pathlib.Path(filename).exists():
-        print("File does not exist: ", filename)
-        sys.exit(1)
+        raise AuditError(f"File does not exist: {filename}")
 
 
 
 def create_report(report):
-    with open("audit.json", "w") as f:
-        json.dump(report, f, indent=2)
+    try:
+        with open("audit.json", "w") as f:
+            json.dump(report, f, indent=2)
+    except OSError:
+            raise AuditError("Could not write audit.json")
 
 if __name__ == "__main__":
     main()
