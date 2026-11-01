@@ -38,7 +38,8 @@ class Device:
                 totals["other"] += 1
         return totals
 
-def count_interfaces(devices): # basically add up every device's interface_count
+def count_interfaces(devices):
+    """ Counts the total number of interfaces by adding everything up from each device"""
     total = {"up": 0, "down": 0, "other": 0}
     for device in devices:
        for key, value in device.interface_counts().items():
@@ -46,6 +47,7 @@ def count_interfaces(devices): # basically add up every device's interface_count
     return total
 
 def count_roles(devices):
+    """Count the number of roles that exist, if the role doesn't exist create it otherwise it updates existing role """
     roles = {}
     for d in devices:
         current = roles.get(d.role, 0)
@@ -87,7 +89,7 @@ def main():
 
 
 def get_inventory(devices_xml):
-    "open the inventory file and pass it"
+    """open the inventory file and pass it"""
     try:
         with open(devices_xml) as f:
             root = ET.parse(f).getroot() # parse the xml file
@@ -98,7 +100,7 @@ def get_inventory(devices_xml):
 
 
 def parse_inventory(root):
-    "Takes the inventory and turns the xml in device objects"
+    """Takes the inventory and turns the xml in device objects"""
     site = root.get("site")
     devices = []
     skipped = 0
@@ -110,7 +112,7 @@ def parse_inventory(root):
     return site,skipped,devices
 
 def get_policy(policy_yaml):
-    "Opens the the policy file and checks if there is something if there is nothing then an empty dict is given"
+    """Opens the the policy file and checks if there is something if there is nothing then an empty dict is given"""
     try:
         with open(policy_yaml) as f:
             loaded = yaml.safe_load(f)
@@ -124,7 +126,7 @@ def get_policy(policy_yaml):
 
 
 def check_unknown_role(devices, policy):
-    "Checking for unknown roles"
+    """Checking for unknown roles"""
     violations = []
     min_os = policy.get("min_os")
     if min_os is None:
@@ -141,7 +143,7 @@ def check_unknown_role(devices, policy):
     return violations
 
 def check_missing_owner(devices, policy):
-    "checking for a missing owner"
+    """checking for a missing owner and returns a dict with the missing owners"""
     missing = []
     require_owner = policy.get("require_owner")
     if not require_owner:
@@ -171,18 +173,19 @@ def too_many_down(devices, policy):
             })
     return total_down
 
-def version_lt(found, required):
-    "made to help make it easier to do os outdated check"
-    found_parts = [int(p) for p in found.split(".")] # split everything into integers by the dot ex [1,2,3]
-    required_parts = [int(p) for p in required.split(".")]
-    length = max(len(found_parts), len(required_parts)) # find the bigger number here
-    found_parts.extend([0] * (length - len(found_parts))) #adding zeros if nessary ex comparing 1.9 to 1.9.0
-    required_parts.extend([0] * (length - len(required_parts)))
-    return found_parts < required_parts # return if true it is less than required
 
 
 
 def check_os_outdated(devices, policy):
+    def version_lt(found, required):
+        """made to help make it easier to do os outdated check because the versions don't all have the same number of digits"""
+        found_parts = [int(p) for p in found.split(".")] # split everything into integers by the dot ex [1,2,3]
+        required_parts = [int(p) for p in required.split(".")]
+        length = max(len(found_parts), len(required_parts)) # find the bigger number here
+        found_parts.extend([0] * (length - len(found_parts))) #adding zeros if nessary ex comparing 1.9 to 1.9.0
+        required_parts.extend([0] * (length - len(required_parts))) # star means to repeat
+        return found_parts < required_parts # return if true it is less than required
+
     """Checking if the device meets the minimum os requirements"""
     violations = []
     min_os = policy.get("min_os")
@@ -219,6 +222,7 @@ def file_exists(filename):
 
 
 def create_report(report):
+    """Creates the final report"""
     try:
         with open("audit.json", "w") as f:
             json.dump(report, f, indent=2)
