@@ -8,6 +8,10 @@ import json
 import yaml
 
 
+class AuditError(Exception):
+    """Raised when a input file is not correct or is invalid"""
+
+
 class Device:
     """A single device from the network"""
     def __init__(self, data):
@@ -51,59 +55,61 @@ def count_roles(devices):
 
 def main():
     device_xml, policy_yaml = cmd_args()
-    print("The device file", device_xml, "The policy file:", policy_yaml)
     # check that the files exist
     file_exists(device_xml)
     file_exists(policy_yaml)
     root = get_inventory(device_xml)
-
-    # debug stuff to be removed later
-    print(root.tag)                      # inventory
-    print(len(root.findall("device")))   # 6
     site,skipped, devices = parse_inventory(root)
-    print (count_interfaces(devices))
-    print(site)
-    print(skipped)
-    print(count_roles(devices))
     policy = get_policy(policy_yaml)
-    print(policy)
-    violations = check_unknown_role(devices, policy)
-    print(violations)
-    missing = check_missing_owner(devices, policy)
-    print(missing)
-    print(too_many_down(devices, policy))
+    violations = (
+        check_unknown_role(devices, policy)
+        + check_missing_owner(devices, policy)
+        + too_many_down(devices, policy)
+        + check_os_outdated(devices, policy)
+    )
+    flagged = {v["device"] for v in violations} # bascially are getting all the device ids from the violations dict
+    compliant = [] # keep all the compilant
+    for device in devices:
+        if device.id not in flagged:
+            compliant.append(device.id)
+    compliant = sorted(compliant)
+
     report = {
         "site": site,
         "total_devices": len(devices),
         "skipped_devices": skipped,
         "roles": count_roles(devices),
         "interfaces": count_interfaces(devices),
-        "violations": violations + missing,
-        "compliant": sorted(device.id for device in devices)
+        "violations": violations,
+        "compliant": compliant
     }
     create_report(report)
-    # for d in devices:
-    #     print(d.id, d.interface_counts())
 
 
 def get_inventory(devices_xml):
+    "open the inventory file and pass it"
     with open(devices_xml) as f:
         root = ET.parse(f).getroot() # parse the xml file
         return root
 
 
+
+
+
 def parse_inventory(root):
+    "Takes the inventory and turns the xml in device objects"
     site = root.get("site")
     devices = []
     skipped = 0
     for dev in root.findall("device"):
-        if dev.get("id") is None:
+        if dev.get("id") is None: # if there is no id provided
             skipped += 1
             continue
         devices.append(Device(dev))
     return site,skipped,devices
 
 def get_policy(policy_yaml):
+    "Opens the the policy file and checks if there is something if there is nothing then an empty dict is given"
     with open(policy_yaml) as f:
         loaded = yaml.safe_load(f)
         if loaded is None:
@@ -144,6 +150,7 @@ def check_missing_owner(devices, policy):
 
 
 def too_many_down(devices, policy):
+    """Check if too many interfaces on the device are in the down state"""
     total_down = []
     max_down_interfaces = policy.get("max_down_interfaces")
     if max_down_interfaces is None:
@@ -157,6 +164,39 @@ def too_many_down(devices, policy):
                 "down": down
             })
     return total_down
+
+def version_lt(found, required):
+    "made to help make it easier to do os outdated check"
+    found_parts = [int(p) for p in found.split(".")] # split everything into integers by the dot ex [1,2,3]
+    required_parts = [int(p) for p in required.split(".")]
+    length = max(len(found_parts), len(required_parts)) # find the bigger number here
+    found_parts.extend([0] * (length - len(found_parts))) #adding zeros if nessary ex comparing 1.9 to 1.9.0
+    required_parts.extend([0] * (length - len(required_parts)))
+    return found_parts < required_parts # return if true it is less than required
+
+
+
+def check_os_outdated(devices, policy):
+    """Checking if the device meets the minimum os requirements"""
+    violations = []
+    min_os = policy.get("min_os")
+    if min_os is None:
+        return violations
+    for device in devices:
+        found_os = device.os
+        role = device.role
+        required = min_os.get(role)
+        if required is None:
+            continue
+        if version_lt(found_os, required):
+            violations.append({
+                "device": device.id,
+                "type": "os_outdated",
+                "found": found_os,
+                "required": required
+            })
+    return violations
+
 def cmd_args(): # used to grab the commandline arguments
     """Get the names of the files passed in """
     numArg = len(sys.argv) # get the number of arguments
