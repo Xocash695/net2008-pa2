@@ -58,34 +58,38 @@ def count_roles(devices):
 def main():
     device_xml, policy_yaml = cmd_args()
     # check that the files exist
-    file_exists(device_xml)
-    file_exists(policy_yaml)
-    root = get_inventory(device_xml)
-    site,skipped, devices = parse_inventory(root)
-    policy = get_policy(policy_yaml)
-    violations = (
-        check_unknown_role(devices, policy)
-        + check_missing_owner(devices, policy)
-        + too_many_down(devices, policy)
-        + check_os_outdated(devices, policy)
-    )
-    flagged = {v["device"] for v in violations} # bascially are getting all the device ids from the violations dict
-    compliant = [] # keep all the compilant
-    for device in devices:
-        if device.id not in flagged:
-            compliant.append(device.id)
-    compliant = sorted(compliant)
+    try:
+        file_exists(device_xml)
+        file_exists(policy_yaml)
+        root = get_inventory(device_xml)
+        site,skipped, devices = parse_inventory(root)
+        policy = get_policy(policy_yaml)
+        violations = (
+            check_unknown_role(devices, policy)
+            + check_missing_owner(devices, policy)
+            + too_many_down(devices, policy)
+            + check_os_outdated(devices, policy)
+        )
+        flagged = {v["device"] for v in violations} # bascially are getting all the device ids from the violations dict
+        compliant = [] # keep all the compilant
+        for device in devices:
+            if device.id not in flagged:
+                compliant.append(device.id)
+        compliant = sorted(compliant)
 
-    report = {
-        "site": site,
-        "total_devices": len(devices),
-        "skipped_devices": skipped,
-        "roles": count_roles(devices),
-        "interfaces": count_interfaces(devices),
-        "violations": violations,
-        "compliant": compliant
-    }
-    create_report(report)
+        report = {
+            "site": site,
+            "total_devices": len(devices),
+            "skipped_devices": skipped,
+            "roles": count_roles(devices),
+            "interfaces": count_interfaces(devices),
+            "violations": violations,
+            "compliant": compliant
+        }
+        create_report(report)
+    except AuditError as err:
+        print(err)
+        sys.exit(1)
 
 
 def get_inventory(devices_xml):
